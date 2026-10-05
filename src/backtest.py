@@ -80,13 +80,11 @@ def performance(r: pd.Series, rf: pd.Series, spy: pd.Series) -> dict:
     }
 
 
-def main() -> None:
-    conn = db.connect()
+def run_backtest(conn) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Returns (monthly returns per strategy, walk-forward picks, performance table)."""
     returns = load_monthly_returns(conn)
     regimes = label_regimes(build_indicators(conn))
     fed_funds = load_series(conn, "FEDFUNDS").to_period("M")
-    conn.close()
-
     regimes = regimes.loc[regimes.index.intersection(returns.index)].dropna(subset=REGIME_DIMENSIONS)
 
     walk_forward = run_rotation(returns, regimes, in_sample=False)
@@ -100,11 +98,19 @@ def main() -> None:
         "Rotation (in-sample, cheating)": in_sample["ret"],
     })
     rf = (fed_funds.reindex(months).ffill() / 100 / 12)  # risk-free rate proxy, monthly
-
-    print(f"Backtest window: {months.min()} -> {months.max()}  ({len(months)} months)\n")
     table = pd.DataFrame({name: performance(r, rf, strategies["SPY buy & hold"])
                           for name, r in strategies.items()}).T
     table.loc["SPY buy & hold", "Beat SPY months %"] = np.nan  # comparing SPY with itself is meaningless
+    return strategies, walk_forward, table
+
+
+def main() -> None:
+    conn = db.connect()
+    strategies, walk_forward, table = run_backtest(conn)
+    conn.close()
+    months = strategies.index
+
+    print(f"Backtest window: {months.min()} -> {months.max()}  ({len(months)} months)\n")
     print(table.round(2).to_string(na_rep="-"))
 
     fallback = (walk_forward["picks"] == BENCHMARK).sum()

@@ -17,9 +17,25 @@ All data is stored in a local **SQLite** database (`data/market.db`) with a norm
 ## Roadmap
 
 - [x] **1. Data layer** — ingestion pipeline, SQLite schema, SQL data-quality checks
-- [ ] **2. Analysis layer** — define macro regimes; sector returns, volatility and hit rates per regime; significance tests
-- [ ] **3. Strategy layer** — regime-based rotation backtest vs. SPY (CAGR, Sharpe, max drawdown)
-- [ ] **4. Presentation** — Streamlit dashboard + written report
+- [x] **2. Analysis layer** — look-ahead-safe macro regimes; sector excess returns, volatility, hit rates and t-stats per regime
+- [x] **3. Strategy layer** — walk-forward regime rotation backtest vs. SPY, equal-weight and an in-sample (look-ahead) control
+- [x] **4. Presentation** — interactive Streamlit dashboard
+- [ ] Written report
+
+## Key findings (2000-2026)
+
+| Strategy (Mar 2005 – Sep 2026) | CAGR | Sharpe | Max drawdown | $1 grows to |
+|---|---|---|---|---|
+| SPY buy & hold | 10.9% | 0.65 | −50.8% | $9.39 |
+| Equal-weight sectors | 10.0% | 0.60 | −49.1% | $7.76 |
+| **Regime rotation (walk-forward)** | **8.9%** | **0.49** | −48.2% | **$6.25** |
+| Regime rotation (in-sample, look-ahead) | 12.7% | 0.70 | −46.9% | $13.18 |
+
+1. **An honest regime rotation does not beat SPY.** It trails by ~2 points a year, mainly by over-weighting energy, which trailed SPY by ~17% a year in 2014-2020.
+2. **Look-ahead bias is worth ~3.8 points a year.** The identical strategy "beats" SPY once it may use future data.
+3. **Few regime effects survive scrutiny.** Only 1 of 77 sector-regime tests reaches |t| ≥ 2, roughly what chance alone would produce.
+4. **Apparent patterns trace back to single episodes.** Tech's strength in high inflation comes from the 2023-26 AI rally (64 of 70 high-inflation months are after 2021); financials' strength with an inverted curve comes from the 2000 dot-com rotation.
+5. **Reverse causality:** SPY does worst while the Fed is cutting, because the Fed cuts in crises (2001, 2008, 2020).
 
 ## Data-quality notes
 
@@ -35,6 +51,9 @@ python3 -m venv venv
 echo "YOUR_FRED_API_KEY" > fred_api_key.txt   # free key: https://fred.stlouisfed.org/docs/api/api_key.html
 ./venv/bin/python -m src.ingest       # download data into data/market.db
 ./venv/bin/python -m src.check_data   # run SQL data-quality checks
+./venv/bin/python -m src.analysis     # regime statistics
+./venv/bin/python -m src.backtest     # backtest summary
+./venv/bin/streamlit run app.py       # interactive dashboard (or double-click run_app.command)
 ```
 
 ## Project structure
@@ -44,5 +63,9 @@ src/config.py       tickers, FRED series, paths
 src/db.py           SQLite schema and upsert helpers
 src/ingest.py       Yahoo Finance + FRED ingestion
 src/check_data.py   runs the checks in sql/data_checks.sql
-sql/                SQL queries
+src/regimes.py      macro indicators and look-ahead-safe regime labels
+src/analysis.py     sector statistics by regime
+src/backtest.py     walk-forward rotation backtest and performance metrics
+app.py              Streamlit dashboard
+sql/                SQL queries (monthly returns, data checks)
 ```

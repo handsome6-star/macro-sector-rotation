@@ -1,0 +1,6 @@
+[server]
+address = "localhost"   # only reachable from this computer
+headless = true
+
+[browser]
+gatherUsageStats = false
