@@ -70,15 +70,30 @@ def print_summary(dimension: str, stats: pd.DataFrame, returns: pd.DataFrame, la
     print("  " + " | ".join(info))
 
 
+def save_tables(conn, returns: pd.DataFrame, regimes: pd.DataFrame) -> None:
+    """Write derived tables back to SQLite so results can be explored with SQL."""
+    long = returns.stack().rename("ret").reset_index()
+    long["excess_ret"] = long["ret"] - long["month"].map(returns[BENCHMARK])
+    long["month"] = long["month"].astype(str)
+    long.to_sql("monthly_returns", conn, if_exists="replace", index=False)
+
+    out = regimes.copy()
+    out.index = out.index.astype(str)
+    out.rename_axis("month").reset_index().to_sql("regimes", conn, if_exists="replace", index=False)
+
+
 def main() -> None:
     conn = db.connect()
     returns = load_monthly_returns(conn)
     regimes = label_regimes(build_indicators(conn))
-    conn.close()
 
     # use only months where every regime label exists, so the dimensions are comparable
     regimes = regimes.loc[regimes.index.intersection(returns.index)].dropna(subset=REGIME_DIMENSIONS)
     print(f"Analysis window: {regimes.index.min()} -> {regimes.index.max()}  ({len(regimes)} months)")
+
+    with conn:
+        save_tables(conn, returns, regimes)
+    conn.close()
 
     OUTPUT_DIR.mkdir(exist_ok=True)
     regimes.to_csv(OUTPUT_DIR / "regimes.csv")
