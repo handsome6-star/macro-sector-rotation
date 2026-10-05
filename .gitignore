@@ -4,3 +4,5 @@ data/*.db
 fred_api_key.txt
 .DS_Store
 开发日志.md
+sql/practice/
+output/
